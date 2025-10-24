@@ -1,22 +1,22 @@
 {
   "name": "kdt-game",
   "version": "1.0.0",
-  "main": "main.js",
+  "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/kimkichan-1/kdt-game.git"
+    "url": "git+https://github.com/kimkichan1225/KDTWebGame.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/kimkichan-1/kdt-game/issues"
+    "url": "https://github.com/kimkichan1225/KDTWebGame/issues"
   },
-  "homepage": "https://github.com/kimkichan-1/kdt-game#readme",
+  "homepage": "https://github.com/kimkichan1225/KDTWebGame#readme",
   "description": "",
   "dependencies": {
     "express": "^5.1.0",
