@@ -1,7 +1,6 @@
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.124/build/three.module.js';
 import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.124/examples/jsm/controls/OrbitControls.js';
 import { player } from './player.js';
-import { object } from './object.js';
 import { math } from './math.js';
 import { hp } from './hp.js'; // hp.js 임포트
 import { WEAPON_DATA, loadWeaponData, spawnWeaponOnMap, getRandomWeaponName } from './weapon.js';
@@ -48,6 +47,13 @@ export class GameStage1 {
     this.SetupSkyAndFog();
     this.CreateGround();
     this.attackSystem = new AttackSystem(this.scene); // AttackSystem 인스턴스 생성
+
+    // 맵에 따라 다른 오브젝트 파일 로드
+    const objectModule = this.map === 'map2'
+      ? await import('./island-object.js')
+      : await import('./object.js');
+    this.objectClass = objectModule.object;
+
     this.CreateLocalPlayer();
 
     
@@ -201,7 +207,7 @@ export class GameStage1 {
 
   CreateLocalPlayer() {
     const npcPos = new THREE.Vector3(0, 0, -4);
-    this.npc_ = new object.NPC(this.scene, npcPos);
+    this.npc_ = new this.objectClass.NPC(this.scene, npcPos);
 
     const localPlayerData = this.playerInfo.find(p => p.id === this.localPlayerId);
 
