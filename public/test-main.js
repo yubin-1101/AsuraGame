@@ -349,8 +349,8 @@ class TestGame {
   }
 
   async LoadCharacter() {
-    // Untitled2.glb 캐릭터 사용 (대검 전용)
-    const glbPath = './resources/Ultimate Animated Character Pack - Nov 2019/glTF/Untitled2.glb';
+    // BlueSoldier_Female.glb 캐릭터 사용 (대검 전용)
+    const glbPath = './resources/New Character/BlueSoldier_Female.glb';
 
     const loader = new GLTFLoader();
 
@@ -394,7 +394,12 @@ class TestGame {
               this.animations[clip.name] = this.mixer.clipAction(clip);
             }
 
-            console.log('사용 가능한 애니메이션:', Object.keys(this.animations));
+            console.log('=== 사용 가능한 애니메이션 목록 ===');
+            console.log(`총 ${Object.keys(this.animations).length}개의 애니메이션`);
+            Object.keys(this.animations).forEach((name, index) => {
+              console.log(`${index + 1}. ${name}`);
+            });
+            console.log('================================');
 
             // 기본 Idle 애니메이션 재생
             this.SetAnimation('Idle');
@@ -403,7 +408,7 @@ class TestGame {
           // 카메라 초기 위치 설정
           this.UpdateCamera();
 
-          console.log('캐릭터 로드 완료: Untitled2.glb');
+          console.log('캐릭터 로드 완료: BlueSoldier_Female.glb');
           resolve();
         },
         undefined,
@@ -486,11 +491,20 @@ class TestGame {
   }
 
   SpawnWeapons(count) {
-    // 대검만 스폰
-    const greatswords = ['Sword_big.fbx', 'Sword_big_Golden.fbx'];
+    // 다양한 무기 스폰 (각 무기 타입별 애니메이션 테스트용)
+    const testWeapons = [
+      'Sword_big.fbx',        // GreatSwordAttack
+      'Sword_big_Golden.fbx', // GreatSwordAttack
+      'Sword.fbx',            // SwordAttack
+      'Dagger.fbx',           // DaggerAttack
+      'Axe_Double.fbx',       // DoubleAxeAttack
+      'Hammer_Double.fbx',    // HammerAttack
+      'Axe_small_Golden.fbx', // HandAxeAttack (Axe_small.fbx는 weapon_data.json에 없음)
+      'Bow_Wooden.fbx',       // Shoot_OneHanded
+    ];
 
     for (let i = 0; i < count; i++) {
-      const weaponName = greatswords[Math.floor(Math.random() * greatswords.length)];
+      const weaponName = testWeapons[i % testWeapons.length];
       const x = Math.random() * 60 - 30;
       const z = Math.random() * 60 - 30;
       const position = new THREE.Vector3(x, 1, z);
@@ -499,7 +513,7 @@ class TestGame {
       this.weapons.push(weapon);
     }
 
-    console.log('대검 스폰 완료:', count, '개');
+    console.log('다양한 무기 스폰 완료:', count, '개');
   }
 
   PickupWeapon() {
@@ -713,8 +727,9 @@ class TestGame {
         }, actualAttackDelay * 1000);
       }
 
-      // SwordSlash 및 GreatSwordSlash 애니메이션 시작 시 무기 회전 초기화
-      if ((animationName === 'SwordSlash' || animationName.includes('GreatSwordSlash')) && this.equippedWeaponModel) {
+      // 근접 무기 애니메이션 시작 시 무기 회전 초기화
+      const meleeAttacks = ['SwordAttack', 'GreatSwordAttack', 'DaggerAttack', 'DoubleAxeAttack', 'HammerAttack', 'HandAxeAttack', 'SwordSlash'];
+      if (meleeAttacks.includes(animationName) && this.equippedWeaponModel) {
         const weaponName = this.equippedWeaponModel.userData.weaponName;
         if (/Sword|Axe|Dagger|Hammer/i.test(weaponName)) {
           this.originalWeaponRotation = this.equippedWeaponModel.rotation.clone();
@@ -736,8 +751,9 @@ class TestGame {
           const isRunning = isMoving && this.keys.shift;
           this.SetAnimation(isMoving ? (isRunning ? 'Run' : 'Walk') : 'Idle');
 
-          // SwordSlash 및 GreatSwordSlash 애니메이션 종료 시 무기 회전 복원
-          if ((animationName === 'SwordSlash' || animationName.includes('GreatSwordSlash')) && this.equippedWeaponModel && this.originalWeaponRotation) {
+          // 근접 무기 애니메이션 종료 시 무기 회전 복원
+          const meleeAttacks = ['SwordAttack', 'GreatSwordAttack', 'DaggerAttack', 'DoubleAxeAttack', 'HammerAttack', 'HandAxeAttack', 'SwordSlash'];
+          if (meleeAttacks.includes(animationName) && this.equippedWeaponModel && this.originalWeaponRotation) {
             this.equippedWeaponModel.rotation.copy(this.originalWeaponRotation);
             this.originalWeaponRotation = null; // 초기화
           }
@@ -806,20 +822,42 @@ class TestGame {
         break;
       case 'KeyJ': // 공격
         if (!this.isAttacking && this.isOnGround && !this.isRolling && this.attackCooldownTimer <= 0) {
-          let attackAnimation = 'SwordSlash'; // 기본값
+          let attackAnimation = 'Punch'; // 기본값 (맨손)
+
           // 무기 종류에 따라 애니메이션 선택
           if (this.equippedWeaponModel && this.equippedWeaponModel.userData.weaponName) {
             const weaponName = this.equippedWeaponModel.userData.weaponName;
+
+            // 원거리 무기
             if (/Pistol|Shotgun|SniperRifle|AssaultRifle|Bow/i.test(weaponName)) {
               attackAnimation = 'Shoot_OneHanded';
-            } else if (/Sword_big/i.test(weaponName)) {
-              // 대검은 GreatSwordSlash 애니메이션 (1, 2, 3 중 랜덤)
-              const slashNum = Math.floor(Math.random() * 3) + 1;
-              attackAnimation = `GreatSwordSlash${slashNum}`;
-            } else if (/Sword|Axe|Dagger|Hammer/i.test(weaponName)) {
-              attackAnimation = 'SwordSlash';
+            }
+            // 대검
+            else if (/Sword_big/i.test(weaponName)) {
+              attackAnimation = 'GreatSwordAttack';
+            }
+            // 단검
+            else if (/Dagger/i.test(weaponName)) {
+              attackAnimation = 'DaggerAttack';
+            }
+            // 양날도끼
+            else if (/Axe_Double/i.test(weaponName)) {
+              attackAnimation = 'DoubleAxeAttack';
+            }
+            // 한손도끼 (양날도끼보다 먼저 체크하면 안됨)
+            else if (/Axe_small/i.test(weaponName) || /Axe(?!_)/i.test(weaponName)) {
+              attackAnimation = 'HandAxeAttack';
+            }
+            // 망치
+            else if (/Hammer_Double/i.test(weaponName) || /Hammer/i.test(weaponName)) {
+              attackAnimation = 'HammerAttack';
+            }
+            // 일반 검
+            else if (/Sword/i.test(weaponName)) {
+              attackAnimation = 'SwordAttack';
             }
           }
+
           this.PlayAttackAnimation(attackAnimation);
         }
         break;
