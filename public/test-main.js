@@ -679,8 +679,11 @@ class TestGame {
               name: 'Fist',
               type: 'melee',
               damage: 10,
-              radius: 1.5,
+              radius: 1, // 구체 크기
               angle: 1.5707963267948966, // 90도
+              projectileSpeed: 20, // 구체 속도
+              projectileLifeTime: 0.1, // 구체 지속 시간
+              activationWindows: [{ start: 0, end: 0.1 }] // 활성화 타이밍
             };
           }
 
@@ -910,19 +913,22 @@ class TestGame {
     const forward = new THREE.Vector3(0, 0, -1);
     const right = new THREE.Vector3(1, 0, 0);
 
-    if (this.keys.forward) velocity.add(forward);
-    if (this.keys.backward) velocity.sub(forward);
-    if (this.keys.left) velocity.sub(right);
-    if (this.keys.right) velocity.add(right);
-    velocity.applyAxisAngle(new THREE.Vector3(0, 1, 0), this.cameraRotation);
+    // 공격 중에는 이동 및 회전 불가
+    if (!this.isAttacking) {
+      if (this.keys.forward) velocity.add(forward);
+      if (this.keys.backward) velocity.sub(forward);
+      if (this.keys.left) velocity.sub(right);
+      if (this.keys.right) velocity.add(right);
+      velocity.applyAxisAngle(new THREE.Vector3(0, 1, 0), this.cameraRotation);
 
-    // 부드러운 회전 처리
-    if (velocity.length() > 0.01) {
-      const angle = Math.atan2(velocity.x, velocity.z);
-      const targetQuaternion = new THREE.Quaternion().setFromAxisAngle(
-        new THREE.Vector3(0, 1, 0), angle
-      );
-      this.character.quaternion.slerp(targetQuaternion, 0.3);
+      // 부드러운 회전 처리
+      if (velocity.length() > 0.01) {
+        const angle = Math.atan2(velocity.x, velocity.z);
+        const targetQuaternion = new THREE.Quaternion().setFromAxisAngle(
+          new THREE.Vector3(0, 1, 0), angle
+        );
+        this.character.quaternion.slerp(targetQuaternion, 0.3);
+      }
     }
 
     // 대쉬 중일 때
@@ -966,16 +972,14 @@ class TestGame {
         this.SetAnimation('Idle');
       }
 
-      // 이동 속도 계산 (공격 중에는 30% 속도로 느리게)
-      let moveSpeed = isRunning ? this.runSpeed : this.speed;
-      if (this.isAttacking) {
-        moveSpeed *= 0.3; // 공격 중에는 30% 속도로 이동
+      // 공격 중이 아닐 때만 이동 적용
+      if (!this.isAttacking) {
+        let moveSpeed = isRunning ? this.runSpeed : this.speed;
+        velocity.normalize().multiplyScalar(moveSpeed * deltaTime);
+
+        this.character.position.x += velocity.x;
+        this.character.position.z += velocity.z;
       }
-
-      velocity.normalize().multiplyScalar(moveSpeed * deltaTime);
-
-      this.character.position.x += velocity.x;
-      this.character.position.z += velocity.z;
 
       // 중력 적용
       this.velocityY += this.gravity * deltaTime;
