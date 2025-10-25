@@ -28,7 +28,7 @@ export class AttackSystem {
       weapon,
       attacker,
       onHit,
-      type: weapon.type === 'melee' ? 'sector' : type,
+      type: 'circle', // 모든 무기를 circle(구체) 타입으로 통일
       angle,
       radius: weapon.radius,
       speed

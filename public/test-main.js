@@ -695,33 +695,19 @@ class TestGame {
           attackDirection.negate(); // 모델의 Z축이 반대 방향이므로 뒤집음
           attackDirection.applyAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI); // Y축 기준으로 180도 회전
 
-          if (weapon.type === 'melee') {
-            this.attackSystem.spawnMeleeProjectile({
-              position: attackPosition,
-              direction: attackDirection,
-              weapon: weapon,
-              attacker: this,
-              type: 'sector',
-              angle: weapon.angle,
-              radius: weapon.radius,
-              onHit: (target) => {
-                console.log('타겟 히트!', weapon.damage, '데미지');
-              }
-            });
-          } else if (weapon.type === 'ranged') {
-            this.attackSystem.spawnMeleeProjectile({
-              position: attackPosition,
-              direction: attackDirection,
-              weapon: weapon,
-              attacker: this,
-              type: 'circle',
-              radius: weapon.projectileSize,
-              speed: weapon.projectileSpeed,
-              onHit: (target) => {
-                console.log('타겟 히트!', weapon.damage, '데미지');
-              }
-            });
-          }
+          // 모든 무기 타입을 circle(구체)로 통일
+          this.attackSystem.spawnMeleeProjectile({
+            position: attackPosition,
+            direction: attackDirection,
+            weapon: weapon,
+            attacker: this,
+            type: 'circle', // 근거리/원거리 모두 구체 사용
+            radius: weapon.radius || weapon.projectileSize,
+            speed: weapon.projectileSpeed,
+            onHit: (target) => {
+              console.log('타겟 히트!', weapon.damage, '데미지');
+            }
+          });
 
           console.log(`공격 발사! 타입: ${weapon.type}, 데미지: ${weapon.damage}`);
         }, actualAttackDelay * 1000);
@@ -980,7 +966,12 @@ class TestGame {
         this.SetAnimation('Idle');
       }
 
-      const moveSpeed = isRunning ? this.runSpeed : this.speed;
+      // 이동 속도 계산 (공격 중에는 30% 속도로 느리게)
+      let moveSpeed = isRunning ? this.runSpeed : this.speed;
+      if (this.isAttacking) {
+        moveSpeed *= 0.3; // 공격 중에는 30% 속도로 이동
+      }
+
       velocity.normalize().multiplyScalar(moveSpeed * deltaTime);
 
       this.character.position.x += velocity.x;
