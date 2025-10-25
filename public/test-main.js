@@ -674,17 +674,8 @@ class TestGame {
           if (!this.isAttacking) return; // 공격이 취소되었으면 실행하지 않음
 
           let weapon = this.equippedWeapon; // 현재 장착된 무기 데이터
-          if (!weapon) { // 무기가 장착되지 않았을 경우 기본 맨손 공격 설정
-            weapon = {
-              name: 'Fist',
-              type: 'melee',
-              damage: 10,
-              radius: 1, // 구체 크기
-              angle: 1.5707963267948966, // 90도
-              projectileSpeed: 20, // 구체 속도
-              projectileLifeTime: 0.1, // 구체 지속 시간
-              activationWindows: [{ start: 0, end: 0.1 }] // 활성화 타이밍
-            };
+          if (!weapon) { // 무기가 장착되지 않았을 경우 weapon_data.json에서 맨손 데이터 로드
+            weapon = WEAPON_DATA['Fist'];
           }
 
           // 공격 위치를 항상 플레이어의 중앙으로 설정
