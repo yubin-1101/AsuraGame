@@ -548,6 +548,7 @@ export const player = (() => {
     PlayAttackAnimation(animationName) {
       if (this.isDead_) return; // 죽은 상태에서는 공격 불가
       if (this.isAttacking_) return; // 이미 공격 중이면 무시
+      if (this.isJumping_) return; // 점프 중에는 공격 불가
 
       this.isAttacking_ = true;
       this.attackCooldownTimer_ = this.attackCooldown_;
@@ -578,6 +579,13 @@ export const player = (() => {
             if (!weapon) { // 무기가 장착되지 않았을 경우 weapon_data.json에서 맨손 데이터 로드
               weapon = WEAPON_DATA['Fist'];
             }
+
+            // 근접 무기일 경우 projectileEffect를 'piercing'으로 설정하여 적중 시 투사체가 사라지지 않도록 함
+            let weaponForProjectile = weapon;
+            if (weapon.type === 'melee') {
+              weaponForProjectile = { ...weapon, projectileEffect: 'piercing' };
+            }
+
             const attacker = this; // 공격자 자신
 
             // 공격 위치를 항상 플레이어의 중앙으로 설정
@@ -595,7 +603,7 @@ export const player = (() => {
             const projectile = this.attackSystem_.spawnMeleeProjectile({
               position: attackPosition,
               direction: attackDirection,
-              weapon: weapon,
+              weapon: weaponForProjectile,
               attacker: attacker,
               type: 'circle', // 근거리/원거리 모두 구체 사용
               radius: weapon.radius || weapon.projectileSize,
