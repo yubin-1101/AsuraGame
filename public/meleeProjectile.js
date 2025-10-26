@@ -136,6 +136,11 @@ export class MeleeProjectile {
       }
     }
 
+    // 비활성화 → 활성화로 전환될 때 hitTargets 초기화 (새로운 활성화 구간마다 데미지 다시 줄 수 있음)
+    if (!wasActive && this.isActive) {
+      this.hitTargets.clear();
+    }
+
     // 활성화 상태가 변경되면 색상 업데이트
     if (this.debugMesh && this.debugMesh.material && wasActive !== this.isActive) {
       if (this.isActive) {
