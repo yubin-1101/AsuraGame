@@ -49,6 +49,57 @@ function randomSpawn() {
   };
 }
 
+// 간단한 AABB 충돌 체크 함수
+function checkAABBCollision(box1, box2) {
+  return (
+    box1.minX <= box2.maxX &&
+    box1.maxX >= box2.minX &&
+    box1.minZ <= box2.maxZ &&
+    box1.maxZ >= box2.minZ
+  );
+}
+
+// 봇이 이동 가능한지 체크 (맵 오브젝트와 충돌 체크)
+// 맵1의 주요 오브젝트 위치 (간단한 근사치)
+const MAP1_OBSTACLES = [
+  // 중앙 건물들
+  { minX: -10, maxX: 10, minZ: -10, maxZ: 10 },
+  // 좌측 건물
+  { minX: -30, maxX: -20, minZ: -15, maxZ: -5 },
+  // 우측 건물
+  { minX: 20, maxX: 30, minZ: -15, maxZ: -5 },
+  // 상단 건물
+  { minX: -15, maxX: -5, minZ: 20, maxZ: 30 },
+  // 하단 건물
+  { minX: -15, maxX: -5, minZ: -30, maxZ: -20 }
+];
+
+// 맵2(아일랜드)의 주요 오브젝트 - 추후 확장 가능
+const MAP2_OBSTACLES = [
+  // 중앙 섬
+  { minX: -15, maxX: 15, minZ: -15, maxZ: 15 }
+];
+
+function canBotMoveTo(x, z, mapType = 'map1') {
+  const BOT_RADIUS = 0.65; // 플레이어와 동일한 크기
+  const botBox = {
+    minX: x - BOT_RADIUS,
+    maxX: x + BOT_RADIUS,
+    minZ: z - BOT_RADIUS,
+    maxZ: z + BOT_RADIUS
+  };
+
+  const obstacles = mapType === 'map2' ? MAP2_OBSTACLES : MAP1_OBSTACLES;
+
+  for (const obstacle of obstacles) {
+    if (checkAABBCollision(botBox, obstacle)) {
+      return false; // 충돌 발생
+    }
+  }
+
+  return true; // 이동 가능
+}
+
 function scheduleBotRespawn(roomId, bot, delayMs = 3000) {
   if (!rooms[roomId] || !bot || !bot.isBot) return;
   if (!bot.runtime) bot.runtime = { x: 0, y: 0, z: 0, rotY: 0 };
@@ -63,6 +114,8 @@ function scheduleBotRespawn(roomId, bot, delayMs = 3000) {
     bot.runtime.z = pos.z;
     bot.runtime.rotY = 0;
     bot.isAttacking = false;
+    bot.killProcessed = false; // 리스폰 시 킬 처리 플래그 초기화
+    bot.lastHitBy = null; // lastHitBy 초기화
     // notify clients: hp restored and position set
     io.to(roomId).emit('hpUpdate', { playerId: bot.id, hp: bot.hp, attackerId: bot.id });
     io.to(roomId).emit('gameUpdate', {
@@ -284,9 +337,30 @@ io.on('connection', (socket) => {
                 const speed = target ? 3.0 : 2.0; // units/sec
                 if (len > 0.01) {
                   const step = Math.min(len, speed * dt);
-                  bot.runtime.x += (dx/len) * step;
-                  bot.runtime.z += (dz/len) * step;
-                  bot.runtime.rotY = Math.atan2(dx, dz);
+                  const newX = bot.runtime.x + (dx/len) * step;
+                  const newZ = bot.runtime.z + (dz/len) * step;
+
+                  // 충돌 체크: 이동 가능한 경우에만 위치 업데이트
+                  if (canBotMoveTo(newX, newZ, room.map)) {
+                    bot.runtime.x = newX;
+                    bot.runtime.z = newZ;
+                    bot.runtime.rotY = Math.atan2(dx, dz);
+                  } else {
+                    // 충돌 시 우회 시도 (90도 회전하여 재시도)
+                    const altDx = -dz; // 90도 회전
+                    const altDz = dx;
+                    const altLen = Math.hypot(altDx, altDz);
+                    if (altLen > 0.01) {
+                      const altStep = Math.min(altLen, speed * dt);
+                      const altX = bot.runtime.x + (altDx/altLen) * altStep;
+                      const altZ = bot.runtime.z + (altDz/altLen) * altStep;
+                      if (canBotMoveTo(altX, altZ, room.map)) {
+                        bot.runtime.x = altX;
+                        bot.runtime.z = altZ;
+                        bot.runtime.rotY = Math.atan2(altDx, altDz);
+                      }
+                    }
+                  }
                 }
                 // keep on ground & bounds
                 bot.runtime.y = 0; // ground level for remote
@@ -326,15 +400,32 @@ io.on('connection', (socket) => {
                         victim.lastHitBy = bot.id;
                       }
                       victim.hp = Math.max(0, victim.hp - damage);
-                      io.to(socket.roomId).emit('hpUpdate', { playerId: victim.id, hp: victim.hp, attackerId: bot.id });
+                      // 봇 공격도 무기 효과 포함 (기본 넉백 + 경직)
+                      io.to(socket.roomId).emit('hpUpdate', {
+                        playerId: victim.id,
+                        hp: victim.hp,
+                        attackerId: bot.id,
+                        weaponEffects: {
+                          knockbackStrength: 3,
+                          knockbackDuration: 0.2,
+                          specialEffect: null,
+                          stunDuration: 0.2 // 봇도 0.2초 경직 적용
+                        },
+                        attackerPosition: [bot.runtime.x, bot.runtime.y, bot.runtime.z]
+                      });
                       if (victim.hp === 0) {
-                        // 최종 킬은 lastHitBy 기준으로 계산
-                        const killerId = victim.lastHitBy || bot.id;
-                        const killer = room.players.find(p => p.id === killerId);
-                        if (killer && killer.id !== victim.id) killer.kills++;
-                        victim.deaths++;
-                        io.to(socket.roomId).emit('updateScores', room.players.map(p => ({ id: p.id, nickname: p.nickname, kills: p.kills, deaths: p.deaths })));
-                        io.to(socket.roomId).emit('killFeed', { attackerName: (killer ? killer.nickname : 'World'), victimName: victim.nickname, attackerCharacter: (killer ? killer.character : 'Default'), victimCharacter: victim.character });
+                        // 중복 처리 방지: 이미 킬/데스가 처리되었으면 무시
+                        if (!victim.killProcessed) {
+                          victim.killProcessed = true; // 처리 플래그 설정
+
+                          // 최종 킬은 lastHitBy 기준으로 계산
+                          const killerId = victim.lastHitBy || bot.id;
+                          const killer = room.players.find(p => p.id === killerId);
+                          if (killer && killer.id !== victim.id) killer.kills++;
+                          victim.deaths++;
+                          io.to(socket.roomId).emit('updateScores', room.players.map(p => ({ id: p.id, nickname: p.nickname, kills: p.kills, deaths: p.deaths })));
+                          io.to(socket.roomId).emit('killFeed', { attackerName: (killer ? killer.nickname : 'World'), victimName: victim.nickname, attackerCharacter: (killer ? killer.character : 'Default'), victimCharacter: victim.character });
+                        }
                         if (victim.isBot) scheduleBotRespawn(socket.roomId, victim, 3000);
                       }
                     }
@@ -378,25 +469,51 @@ io.on('connection', (socket) => {
     if (socket.roomId && rooms[socket.roomId]) {
         const room = rooms[socket.roomId];
         const victim = room.players.find(p => p.id === victimId);
-        const attacker = room.players.find(p => p.id === attackerId);
 
-        if (victim) {
-            victim.deaths++;
+        if (!victim) return;
+
+        // 중복 처리 방지: 이미 킬/데스가 처리되었으면 무시
+        if (victim.killProcessed) {
+            return;
         }
+        victim.killProcessed = true; // 처리 플래그 설정
+
+        // lastHitBy를 우선 사용 (서버에 저장된 마지막 공격자)
+        const killerId = victim.lastHitBy || attackerId;
+        const attacker = room.players.find(p => p.id === killerId);
+
+        victim.deaths++;
+
         if (attacker && attacker.id !== victim.id) {
             attacker.kills++;
         }
 
         let attackerName = 'World';
+        let attackerCharacter = 'Default';
         if (attacker) {
             if (attacker.id === victim.id) {
                 attackerName = victim.nickname; // 자살 시 자신의 닉네임 표시
+                attackerCharacter = victim.character;
             } else {
                 attackerName = attacker.nickname;
+                attackerCharacter = attacker.character;
             }
         }
+
         io.to(socket.roomId).emit('updateScores', room.players.map(p => ({ id: p.id, nickname: p.nickname, kills: p.kills, deaths: p.deaths })));
-        io.to(socket.roomId).emit('killFeed', { attackerName: attackerName, victimName: victim.nickname, attackerCharacter: attacker ? attacker.character : 'Default', victimCharacter: victim ? victim.character : 'Default' });
+        io.to(socket.roomId).emit('killFeed', { attackerName: attackerName, victimName: victim.nickname, attackerCharacter: attackerCharacter, victimCharacter: victim.character });
+    }
+  });
+
+  socket.on('playerRespawned', ({ playerId }) => {
+    if (socket.roomId && rooms[socket.roomId]) {
+        const room = rooms[socket.roomId];
+        const player = room.players.find(p => p.id === playerId);
+
+        if (player) {
+            player.killProcessed = false; // 리스폰 시 킬 처리 플래그 초기화
+            player.lastHitBy = null; // lastHitBy 초기화
+        }
     }
   });
 
@@ -504,37 +621,49 @@ io.on('connection', (socket) => {
   });
 
   socket.on('playerDamage', (data) => {
-    
+
     if (socket.roomId && rooms[socket.roomId]) {
       const room = rooms[socket.roomId];
       const targetPlayer = room.players.find(p => p.id === data.targetId);
       if (targetPlayer) {
-        
+
         // 기록: 마지막 가해자 (자살/자해는 제외)
         if (data.attackerId && data.attackerId !== targetPlayer.id) {
           targetPlayer.lastHitBy = data.attackerId;
         }
         targetPlayer.hp -= data.damage;
         if (targetPlayer.hp < 0) targetPlayer.hp = 0;
-        
 
-        io.to(socket.roomId).emit('hpUpdate', { playerId: targetPlayer.id, hp: targetPlayer.hp, attackerId: data.attackerId });
+
+        // 무기 효과 정보를 포함하여 hpUpdate 전송
+        io.to(socket.roomId).emit('hpUpdate', {
+          playerId: targetPlayer.id,
+          hp: targetPlayer.hp,
+          attackerId: data.attackerId,
+          weaponEffects: data.weaponEffects || {},
+          attackerPosition: data.attackerPosition || null
+        });
         
 
         if (targetPlayer.hp === 0) {
-          
+
           // If a bot died, handle killfeed/score and schedule respawn here (clients don't emit playerKilled for bots)
           if (targetPlayer.isBot) {
-            const killerId = targetPlayer.lastHitBy || data.attackerId;
-            const attacker = room.players.find(p => p.id === killerId);
-            targetPlayer.deaths++;
-            if (attacker && attacker.id !== targetPlayer.id) {
-              attacker.kills++;
+            // 중복 처리 방지: 이미 킬/데스가 처리되었으면 무시
+            if (!targetPlayer.killProcessed) {
+              targetPlayer.killProcessed = true; // 처리 플래그 설정
+
+              const killerId = targetPlayer.lastHitBy || data.attackerId;
+              const attacker = room.players.find(p => p.id === killerId);
+              targetPlayer.deaths++;
+              if (attacker && attacker.id !== targetPlayer.id) {
+                attacker.kills++;
+              }
+              io.to(socket.roomId).emit('updateScores', room.players.map(p => ({ id: p.id, nickname: p.nickname, kills: p.kills, deaths: p.deaths })));
+              const attackerName = attacker ? attacker.nickname : 'World';
+              const attackerCharacter = attacker ? attacker.character : 'Default';
+              io.to(socket.roomId).emit('killFeed', { attackerName, victimName: targetPlayer.nickname, attackerCharacter, victimCharacter: targetPlayer.character });
             }
-            io.to(socket.roomId).emit('updateScores', room.players.map(p => ({ id: p.id, nickname: p.nickname, kills: p.kills, deaths: p.deaths })));
-            const attackerName = attacker ? attacker.nickname : 'World';
-            const attackerCharacter = attacker ? attacker.character : 'Default';
-            io.to(socket.roomId).emit('killFeed', { attackerName, victimName: targetPlayer.nickname, attackerCharacter, victimCharacter: targetPlayer.character });
             scheduleBotRespawn(socket.roomId, targetPlayer, 3000);
           }
         }

@@ -343,13 +343,13 @@ export class GameStage1 {
     });
 
     this.socket.on('hpUpdate', (data) => {
-      
+
       const targetPlayer = (data.playerId === this.localPlayerId) ? this.player_ : this.players[data.playerId];
       if (targetPlayer) {
         const oldHp = targetPlayer.hp_;
         targetPlayer.hp_ = data.hp; // 서버에서 받은 HP로 직접 설정
         targetPlayer.hpUI.updateHP(data.hp); // UI 업데이트
-        
+
 
         if (data.hp <= 0 && !targetPlayer.isDead_) {
           targetPlayer.isDead_ = true;
@@ -366,6 +366,11 @@ export class GameStage1 {
         } else if (data.hp > 0 && targetPlayer.isDead_) { // 리스폰
           targetPlayer.isDead_ = false;
           targetPlayer.Respawn_(); // Respawn_ 함수 호출하여 상태 및 위치 재설정
+
+          // 서버에 리스폰 알림 (킬 처리 플래그 초기화용)
+          if (data.playerId === this.localPlayerId) {
+            this.socket.emit('playerRespawned', { playerId: data.playerId });
+          }
         } else if (data.hp < oldHp) { // HP가 실제로 감소했을 때만 피격 효과 트리거
           // 로컬 플레이어인 경우 피격 효과 (빨간 화면) 트리거
           if (data.playerId === this.localPlayerId && targetPlayer.hitEffect) {
@@ -377,6 +382,28 @@ export class GameStage1 {
           // 죽지 않았을 경우 RecieveHit 애니메이션 트리거
           if (targetPlayer.hp_ > 0) {
             targetPlayer.SetAnimation_('RecieveHit');
+          }
+
+          // 무기 효과 적용 (넉백 및 경직)
+          if (data.weaponEffects && targetPlayer.hp_ > 0) {
+            // 넉백 적용
+            if (data.weaponEffects.knockbackStrength > 0 && data.attackerPosition) {
+              const targetPos = new THREE.Vector3();
+              targetPlayer.mesh_.getWorldPosition(targetPos);
+              const attackerPos = new THREE.Vector3(data.attackerPosition[0], data.attackerPosition[1], data.attackerPosition[2]);
+              const knockbackDirection = targetPos.clone().sub(attackerPos).normalize();
+
+              targetPlayer.ApplyKnockback(
+                knockbackDirection,
+                data.weaponEffects.knockbackStrength * 10, // 강도 조절
+                data.weaponEffects.knockbackDuration
+              );
+            }
+
+            // 경직 적용
+            if (data.weaponEffects.stunDuration > 0) {
+              targetPlayer.ApplyStun(data.weaponEffects.stunDuration);
+            }
           }
         }
       }
@@ -486,7 +513,21 @@ export class GameStage1 {
     this.prevTime = time || performance.now();
 
     if (this.player_ && this.player_.mesh_) {
-      this.player_.Update(delta, this.rotationAngle, this.npc_.GetCollidables());
+      // 충돌 대상: 맵 오브젝트 + 다른 플레이어들
+      const mapCollidables = this.npc_.GetCollidables();
+
+      // 다른 플레이어들을 충돌 대상에 추가
+      const playerCollidables = Object.values(this.players)
+        .filter(p => p.mesh_ && !p.isDead_) // 메시가 있고 살아있는 플레이어만
+        .map(p => ({
+          boundingBox: p.boundingBox_,
+          isPlayer: true, // 플레이어임을 표시
+          playerId: p.params_.playerId
+        }));
+
+      const allCollidables = [...mapCollidables, ...playerCollidables];
+
+      this.player_.Update(delta, this.rotationAngle, allCollidables);
       this.UpdateCamera();
 
       // Send player position to server

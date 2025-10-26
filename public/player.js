@@ -57,6 +57,13 @@ export const player = (() => {
       this.attackSystem_ = params.attackSystem; // AttackSystem 인스턴스
       this.currentAttackProjectile_ = null; // 현재 공격으로 생성된 투사체
 
+      // 넉백 및 경직 시스템
+      this.isStunned_ = false; // 경직 상태
+      this.stunTimer_ = 0; // 경직 타이머
+      this.knockbackVelocity_ = new THREE.Vector3(0, 0, 0); // 넉백 속도
+      this.isKnockback_ = false; // 넉백 상태
+      this.knockbackTimer_ = 0; // 넉백 타이머
+
       this.LoadModel_(params.character);
       if (!params.isRemote) {
         // 사망 오버레이 (상단: "또 죽었어?", 중앙: 카운트다운)
@@ -134,6 +141,27 @@ export const player = (() => {
       }
     }
 
+    ApplyKnockback(direction, strength, duration) {
+      // 넉백 방향 및 속도 설정
+      if (this.isDead_) return; // 죽은 상태에서는 넉백 무시
+
+      this.isKnockback_ = true;
+      this.knockbackTimer_ = duration || 0.3;
+
+      // 넉백 방향 정규화 및 속도 적용
+      const knockbackDir = direction.clone().normalize();
+      knockbackDir.y = 0; // Y축 이동은 무시 (지면에서 밀려남)
+      this.knockbackVelocity_.copy(knockbackDir.multiplyScalar(strength || 5));
+    }
+
+    ApplyStun(duration) {
+      // 경직 적용
+      if (this.isDead_) return; // 죽은 상태에서는 경직 무시
+
+      this.isStunned_ = true;
+      this.stunTimer_ = duration || 0.5;
+    }
+
     TakeDamage(newHp) {
       // HP 값은 main.js에서 서버로부터 받은 값으로 직접 업데이트되므로, 여기서는 시각적 효과만 처리
       // this.hp_ = newHp; // 이 줄은 main.js에서 처리
@@ -189,6 +217,7 @@ export const player = (() => {
 
     OnKeyDown_(event) {
       if (this.isDead_) return; // 죽었으면 입력 무시
+      if (this.isStunned_) return; // 경직 상태에서는 입력 무시
       switch (event.code) {
         case 'KeyW': this.keys_.forward = true; break;
         case 'KeyS': this.keys_.backward = true; break;
@@ -269,6 +298,7 @@ export const player = (() => {
 
     OnKeyUp_(event) {
       if (this.isDead_) return; // 죽었으면 입력 무시
+      if (this.isStunned_) return; // 경직 상태에서는 입력 무시
       switch (event.code) {
         case 'KeyW': this.keys_.forward = false; break;
         case 'KeyS': this.keys_.backward = false; break;
@@ -371,6 +401,17 @@ export const player = (() => {
         this.ClearAttackProjectile_();
       }
 
+      // RecieveHit 애니메이션은 공격을 중단시킴
+      if (name === 'RecieveHit' && this.isAttacking_) {
+        this.isAttacking_ = false;
+        this.ClearAttackProjectile_();
+        // 진행 중인 공격 애니메이션의 콜백 제거
+        if (this.onAnimationFinished_) {
+          this.mixer_.removeEventListener('finished', this.onAnimationFinished_);
+          this.onAnimationFinished_ = null;
+        }
+      }
+
       if (this.currentAnimationName_ === animationName) return;
       if (animationName === 'Death') { // Death 애니메이션은 항상 재생
         this.currentAnimationName_ = animationName;
@@ -394,7 +435,8 @@ export const player = (() => {
         return;
       }
       if (this.isDead_) return; // 죽은 상태에서는 Death 애니메이션 외 다른 애니메이션 재생 방지
-      if (this.isAttacking_ && !isNewAttack) return; // 공격 중에는 다른 애니메이션 재생 방지
+      // RecieveHit 애니메이션은 공격 중에도 재생 가능
+      if (this.isAttacking_ && !isNewAttack && name !== 'RecieveHit') return; // 공격 중에는 다른 애니메이션 재생 방지 (RecieveHit 제외)
 
       this.currentAnimationName_ = animationName;
       if (this.currentAction_) {
@@ -418,6 +460,22 @@ export const player = (() => {
         } else if (name === 'Death') {
           this.currentAction_.setLoop(THREE.LoopOnce);
           this.currentAction_.clampWhenFinished = true;
+        } else if (name === 'RecieveHit') {
+          // RecieveHit 애니메이션은 한 번 재생 후 Idle로 전환
+          this.currentAction_.setLoop(THREE.LoopOnce);
+          this.currentAction_.clampWhenFinished = true;
+          this.currentAction_.timeScale = 1.2; // 약간 빠르게 재생
+
+          // 애니메이션 종료 시 Idle 또는 Walk로 전환
+          const onRecieveHitFinished = (e) => {
+            if (e.action === this.currentAction_) {
+              const isMoving = this.keys_.forward || this.keys_.backward || this.keys_.left || this.keys_.right;
+              const isRunning = isMoving && this.keys_.shift;
+              this.SetAnimation_(isMoving ? (isRunning ? 'Run' : 'Walk') : 'Idle');
+              this.mixer_.removeEventListener('finished', onRecieveHitFinished);
+            }
+          };
+          this.mixer_.addEventListener('finished', onRecieveHitFinished);
         } else if (name.includes('Attack') || name.includes('Punch') || name.includes('Slash') || name === 'Shoot_OneHanded') {
           this.currentAction_.setLoop(THREE.LoopOnce);
           this.currentAction_.clampWhenFinished = true;
@@ -611,8 +669,31 @@ export const player = (() => {
               onHit: (target) => {
 
                 if (this.socket_ && target.params_.isRemote) { // 원격 플레이어에게만 데미지 이벤트 전송
+                  // 공격자 위치 계산 (넉백 방향용)
+                  const attackerPos = new THREE.Vector3();
+                  this.mesh_.getWorldPosition(attackerPos);
 
-                  this.socket_.emit('playerDamage', { targetId: target.params_.playerId, damage: weapon.damage, attackerId: this.socket_.id });
+                  // 경직 시간 계산: 근거리 무기는 기본 0.2초, stun 효과가 있으면 0.5초
+                  let stunDuration = 0;
+                  if (weapon.type === 'melee') {
+                    stunDuration = weapon.specialEffect === 'stun' ? 0.5 : 0.2; // 근거리는 기본 경직 0.2초, stun 효과면 0.5초
+                  } else if (weapon.specialEffect === 'stun') {
+                    stunDuration = 0.5; // 원거리 무기는 stun 효과가 있을 때만 경직
+                  }
+
+                  // 무기 효과 정보 포함
+                  this.socket_.emit('playerDamage', {
+                    targetId: target.params_.playerId,
+                    damage: weapon.damage,
+                    attackerId: this.socket_.id,
+                    weaponEffects: {
+                      knockbackStrength: weapon.knockbackStrength || 0,
+                      knockbackDuration: weapon.knockbackDuration || 0,
+                      specialEffect: weapon.specialEffect || null,
+                      stunDuration: stunDuration
+                    },
+                    attackerPosition: [attackerPos.x, attackerPos.y, attackerPos.z]
+                  });
                 }
               }
             });
@@ -736,6 +817,16 @@ export const player = (() => {
         if (this.hpUI) {
           this.hpUI.updatePosition();
         }
+        // 원격 플레이어의 바운딩 박스 위치 업데이트 (충돌 감지용)
+        if (this.mesh_) {
+          const halfWidth = 0.65;
+          const halfHeight = 3.2;
+          const halfDepth = 0.65;
+          this.boundingBox_.set(
+            new THREE.Vector3(this.mesh_.position.x - halfWidth, this.mesh_.position.y, this.mesh_.position.z - halfDepth),
+            new THREE.Vector3(this.mesh_.position.x + halfWidth, this.mesh_.position.y + halfHeight, this.mesh_.position.z + halfDepth)
+          );
+        }
         return;
       }
       if (!this.mesh_) return;
@@ -775,15 +866,50 @@ export const player = (() => {
         if (this.attackCooldownTimer_ < 0) this.attackCooldownTimer_ = 0;
       }
 
-      
+      // 경직 타이머 감소
+      if (this.stunTimer_ > 0) {
+        this.stunTimer_ -= timeElapsed;
+        if (this.stunTimer_ <= 0) {
+          this.stunTimer_ = 0;
+          this.isStunned_ = false;
+        }
+      }
+
+      // 넉백 타이머 감소
+      if (this.knockbackTimer_ > 0) {
+        this.knockbackTimer_ -= timeElapsed;
+        if (this.knockbackTimer_ <= 0) {
+          this.knockbackTimer_ = 0;
+          this.isKnockback_ = false;
+          this.knockbackVelocity_.set(0, 0, 0);
+        }
+      }
+
+
 
       let newPosition = this.position_.clone();
       let velocity = new THREE.Vector3();
       const forward = new THREE.Vector3(0, 0, -1);
       const right = new THREE.Vector3(1, 0, 0);
 
-      // 공격 중에는 이동 및 회전 불가
-      if (!this.isAttacking_) {
+      // 넉백 중일 때는 넉백 속도만 적용
+      if (this.isKnockback_) {
+        velocity.copy(this.knockbackVelocity_);
+        // 넉백 속도 감소 (마찰 효과)
+        this.knockbackVelocity_.multiplyScalar(0.9);
+
+        // 맵 경계 체크: 넉백으로 맵 밖으로 나가는 것 방지
+        const nextPos = this.position_.clone().add(velocity.clone().multiplyScalar(timeElapsed));
+        const MAP_BOUNDARY = 40;
+        if (Math.abs(nextPos.x) > MAP_BOUNDARY || Math.abs(nextPos.z) > MAP_BOUNDARY) {
+          // 맵 밖으로 나가려 하면 넉백 취소
+          this.isKnockback_ = false;
+          this.knockbackTimer_ = 0;
+          this.knockbackVelocity_.set(0, 0, 0);
+          velocity.set(0, 0, 0);
+        }
+      } else if (!this.isAttacking_ && !this.isStunned_) {
+        // 공격 중이거나 경직 상태가 아닐 때만 이동 및 회전 가능
         // 입력에 따른 방향 계산
         if (this.keys_.forward) velocity.add(forward);
         if (this.keys_.backward) velocity.sub(forward);
@@ -842,37 +968,24 @@ export const player = (() => {
               if (isOnTop) continue; // 오브젝트 위에 있으면 X/Z 이동 허용
             }
 
-            // 충돌 발생 시 이전 위치로 되돌리고 Y 속도 0으로 설정
-            // newPosition.copy(this.position_);
-            // this.velocityY_ = 0;
+            // 충돌 발생
             canMove = false;
-            // X와 Z 방향을 개별적으로 테스트
-            let canMoveX = true;
-            let canMoveZ = true;
 
+            // X와 Z 방향을 개별적으로 테스트
             // X 방향 테스트
             const tempBoxX = this.boundingBox_.clone();
-            tempBoxX.translate(new THREE.Vector3(rollMove.x, this.velocityY_ * timeElapsed, 0));
+            tempBoxX.translate(new THREE.Vector3(adjustedRollMove.x, this.velocityY_ * timeElapsed, 0));
             if (tempBoxX.intersectsBox(collidable.boundingBox)) {
-              canMoveX = false;
+              adjustedRollMove.x = 0; // X 방향 이동 차단
             }
 
             // Z 방향 테스트
             const tempBoxZ = this.boundingBox_.clone();
-            tempBoxZ.translate(new THREE.Vector3(0, this.velocityY_ * timeElapsed, rollMove.z));
+            tempBoxZ.translate(new THREE.Vector3(0, this.velocityY_ * timeElapsed, adjustedRollMove.z));
             if (tempBoxZ.intersectsBox(collidable.boundingBox)) {
-              canMoveZ = false;
-            }
-
-            // 슬라이딩: 충돌하지 않는 방향으로만 이동
-            if (!canMoveX && canMoveZ) {
-              adjustedRollMove.x = 0; // X 방향 이동 차단
-            } else if (canMoveX && !canMoveZ) {
               adjustedRollMove.z = 0; // Z 방향 이동 차단
-            } else {
-              adjustedRollMove.set(0, 0, 0); // 둘 다 충돌 시 이동 차단
             }
-            break; // 첫 번째 충돌 처리 후 종료
+            // break 제거 - 모든 충돌 누적 처리
           }
         }
 
@@ -954,37 +1067,24 @@ export const player = (() => {
             if (boxMaxY <= this.position_.y + this.maxStepHeight_ && boxMaxY > this.position_.y) {
               stepUpHeight = Math.max(stepUpHeight, boxMaxY - this.position_.y);
             } else {
-              // 충돌 발생 시 이전 위치로 되돌리고 Y 속도 0으로 설정
-              // newPosition.copy(this.position_);
-              // this.velocityY_ = 0;
+              // 충돌 발생
               canMove = false;
-              // X와 Z 방향을 개별적으로 테스트
-              let canMoveX = true;
-              let canMoveZ = true;
 
+              // X와 Z 방향을 개별적으로 테스트
               // X 방향 테스트
               const tempBoxX = this.boundingBox_.clone();
-              tempBoxX.translate(new THREE.Vector3(velocity.x, this.velocityY_ * timeElapsed, 0));
+              tempBoxX.translate(new THREE.Vector3(adjustedVelocity.x, this.velocityY_ * timeElapsed, 0));
               if (tempBoxX.intersectsBox(collidable.boundingBox)) {
-                canMoveX = false;
+                adjustedVelocity.x = 0; // X 방향 이동 차단
               }
 
               // Z 방향 테스트
               const tempBoxZ = this.boundingBox_.clone();
-              tempBoxZ.translate(new THREE.Vector3(0, this.velocityY_ * timeElapsed, velocity.z));
+              tempBoxZ.translate(new THREE.Vector3(0, this.velocityY_ * timeElapsed, adjustedVelocity.z));
               if (tempBoxZ.intersectsBox(collidable.boundingBox)) {
-                canMoveZ = false;
-              }
-
-              // 슬라이딩: 충돌하지 않는 방향으로만 이동
-              if (!canMoveX && canMoveZ) {
-                adjustedVelocity.x = 0; // X 방향 이동 차단
-              } else if (canMoveX && !canMoveZ) {
                 adjustedVelocity.z = 0; // Z 방향 이동 차단
-              } else {
-                adjustedVelocity.set(0, 0, 0); // 둘 다 충돌 시 이동 차단
               }
-              break;
+              // break 제거 - 모든 충돌 누적 처리
             }
           }
         }
