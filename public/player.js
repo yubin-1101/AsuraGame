@@ -279,10 +279,22 @@ export const player = (() => {
             // 무기 종류에 따라 애니메이션 선택
             if (this.currentWeaponModel && this.currentWeaponModel.userData.weaponName) {
               const weaponName = this.currentWeaponModel.userData.weaponName;
+
+              // 무기별 애니메이션 매칭
               if (/Pistol|Shotgun|SniperRifle|AssaultRifle|Bow/i.test(weaponName)) {
                 attackAnimation = 'Shoot_OneHanded';
-              } else if (/Sword|Axe|Dagger|Hammer/i.test(weaponName)) {
-                attackAnimation = 'SwordSlash';
+              } else if (/Sword_big|GreatSword/i.test(weaponName)) {
+                attackAnimation = 'GreatSwordAttack';
+              } else if (/Axe_Double/i.test(weaponName)) {
+                attackAnimation = 'DoubleAxeAttack';
+              } else if (/Axe_small|Axe/i.test(weaponName)) {
+                attackAnimation = 'HandAxeAttack';
+              } else if (/Hammer/i.test(weaponName)) {
+                attackAnimation = 'HammerAttack';
+              } else if (/Dagger/i.test(weaponName)) {
+                attackAnimation = 'DaggerAttack';
+              } else if (/Sword/i.test(weaponName)) {
+                attackAnimation = 'SwordAttack';
               }
             }
             this.PlayAttackAnimation(attackAnimation);

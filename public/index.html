@@ -332,6 +332,236 @@
     background-color: #d97d3d;
     border-color: #d97d3d;
   }
+
+  /* 반응형 디자인: 모바일 및 작은 화면 대응 */
+  @media (max-width: 768px) {
+    /* 메인 메뉴 반응형 */
+    body {
+      background-size: cover;
+      background-position: center center;
+      background-attachment: fixed;
+    }
+
+    #menu h1 {
+      font-size: 32px;
+      margin-bottom: 15px;
+    }
+
+    #createRoomButton, #joinRoomMainButton, #testButton, #popupJoinButton, #popupCloseButton {
+      padding: 12px 24px;
+      font-size: 18px;
+      margin: 8px 0;
+      width: 80%;
+      max-width: 300px;
+    }
+
+    /* 팝업 반응형 */
+    .popup-content {
+      width: 90%;
+      max-width: 90%;
+      padding: 20px;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+
+    .popup-content h3 {
+      font-size: 20px;
+      margin-bottom: 10px;
+    }
+
+    .popup-content input {
+      width: 90%;
+      font-size: 14px;
+      padding: 8px;
+    }
+
+    .popup-content button {
+      font-size: 16px;
+      padding: 10px 20px;
+      margin: 5px;
+    }
+
+    /* 맵 선택 반응형 */
+    #mapSelectionContainer {
+      flex-direction: column;
+      gap: 15px;
+      align-items: center;
+    }
+
+    .map-thumbnail {
+      width: 150px;
+      height: 112px;
+    }
+
+    .map-thumbnail p {
+      font-size: 12px;
+    }
+
+    /* 라운드 시간 버튼 반응형 */
+    #roundTimeContainer {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+    }
+
+    .round-time-btn {
+      padding: 6px 12px;
+      font-size: 14px;
+      flex: 1 1 calc(33.33% - 8px);
+      min-width: 80px;
+    }
+
+    /* 공개방 목록 반응형 */
+    #publicRoomsList {
+      max-height: 40vh;
+    }
+
+    .room-item {
+      padding: 10px;
+      font-size: 14px;
+    }
+
+    #refreshRoomListButton {
+      font-size: 12px;
+      padding: 5px 10px;
+    }
+
+    /* 대기실 반응형 */
+    #waitingRoom {
+      width: 95%;
+      padding: 15px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    #waitingRoom h2 {
+      font-size: 24px;
+      margin-bottom: 10px;
+    }
+
+    #waitingRoomIdDisplay {
+      font-size: 20px;
+    }
+
+    #waitingRoomMapDisplay {
+      font-size: 16px;
+    }
+
+    #waitingRoomTimeDisplay {
+      font-size: 16px;
+    }
+
+    #playerSlots {
+      grid-template-columns: repeat(2, 1fr) !important;
+      gap: 10px;
+    }
+
+    .player-slot {
+      width: 100%;
+      height: 150px;
+      font-size: 12px;
+    }
+
+    .player-slot img {
+      width: 60px;
+      height: 60px;
+    }
+
+    #waitingRoomButtonsContainer button {
+      font-size: 14px;
+      padding: 8px 16px;
+      margin: 5px;
+    }
+
+    /* 인게임 UI 반응형 */
+    #timer {
+      font-size: 24px;
+      top: 10px;
+    }
+
+    #killFeed {
+      width: 200px;
+      top: 10px;
+      right: 10px;
+      font-size: 12px;
+    }
+
+    #scoreboard {
+      width: 90%;
+      max-width: 350px;
+      padding: 15px;
+    }
+
+    #scoreboardTable {
+      width: 100%;
+      font-size: 14px;
+    }
+
+    /* HP 바 반응형 */
+    .hp-bar-container {
+      min-width: 200px;
+      height: 50px;
+      padding: 5px 12px 5px 5px;
+    }
+
+    .hp-profile {
+      width: 40px;
+      height: 40px;
+      margin-right: 8px;
+    }
+
+    .hp-bar-bg {
+      width: 120px;
+      height: 16px;
+      margin-right: 8px;
+    }
+
+    .hp-name {
+      font-size: 14px;
+    }
+
+    .hp-number {
+      font-size: 12px;
+    }
+
+    /* 죽음/승리 오버레이 반응형 */
+    #deathOverlay, #victoryOverlay {
+      font-size: 18px;
+    }
+
+    #deathOverlay h2, #victoryOverlay h2 {
+      font-size: 32px;
+    }
+
+    #respawnCountdown {
+      font-size: 28px;
+    }
+  }
+
+  /* 초소형 화면 (360px 이하) */
+  @media (max-width: 360px) {
+    #menu h1 {
+      font-size: 24px;
+    }
+
+    #createRoomButton, #joinRoomMainButton, #testButton {
+      font-size: 16px;
+      padding: 10px 20px;
+    }
+
+    .popup-content {
+      padding: 15px;
+    }
+
+    #playerSlots {
+      grid-template-columns: 1fr !important;
+    }
+
+    .player-slot {
+      height: 120px;
+    }
+  }
   </style>
   <style id="character-popup-styles">
     /* 메인 레이아웃: 캐릭터 선택창과 미리보기 패널, 더 위로 이동 */
@@ -692,8 +922,8 @@
         left: 50%;
         transform: translate(-50%, 0);
       }
-      .character-grid-wrapper { 
-        margin-bottom: 20px; 
+      .character-grid-wrapper {
+        margin-bottom: 20px;
       }
       .character-grid {
         grid-template-columns: repeat(5, 100px);
@@ -715,6 +945,142 @@
       }
       .nickname-input {
         max-width: 160px;
+      }
+    }
+
+    /* 반응형: 화면 너비 768px 이하 (모바일) */
+    @media (max-width: 768px) {
+      .main-layout {
+        top: 50%;
+        transform: translate(-50%, -50%);
+        gap: 15px;
+        max-height: 95vh;
+        overflow-y: auto;
+        padding: 10px 0;
+      }
+
+      .character-grid-wrapper {
+        min-width: 0;
+        width: 95vw;
+        max-width: 450px;
+        padding: 15px 10px;
+        max-height: 45vh;
+        overflow-y: auto;
+      }
+
+      .character-grid {
+        grid-template-columns: repeat(4, 80px);
+        gap: 12px 15px;
+        max-height: none;
+      }
+
+      .character {
+        width: 80px;
+        height: 110px;
+      }
+
+      .character img {
+        width: 60px;
+        height: 60px;
+        margin-top: 8px;
+        margin-bottom: 6px;
+      }
+
+      .character-name {
+        font-size: 0.85rem;
+        padding: 4px 8px;
+        letter-spacing: 0.8px;
+      }
+
+      .preview-panel {
+        min-width: 0;
+        width: 95vw;
+        max-width: 450px;
+        padding: 15px 12px 12px 12px;
+      }
+
+      .preview-image-area {
+        width: 200px;
+        height: 250px;
+        margin-bottom: 12px;
+      }
+
+      .preview-character-name {
+        font-size: 1.3rem;
+        margin-bottom: 12px;
+      }
+
+      .nickname-label {
+        font-size: 1.1rem;
+        margin-bottom: 6px;
+      }
+
+      .nickname-input {
+        max-width: 100%;
+        width: 90%;
+        font-size: 1rem;
+        padding: 10px 12px;
+        margin-bottom: 10px;
+      }
+
+      .enter-btn {
+        min-width: 100px;
+        padding: 12px 24px;
+        font-size: 1.2rem;
+      }
+    }
+
+    /* 반응형: 화면 너비 480px 이하 (작은 모바일) */
+    @media (max-width: 480px) {
+      .character-grid-wrapper {
+        max-height: 40vh;
+      }
+
+      .character-grid {
+        grid-template-columns: repeat(3, 75px);
+        gap: 10px 12px;
+      }
+
+      .character {
+        width: 75px;
+        height: 105px;
+      }
+
+      .character img {
+        width: 55px;
+        height: 55px;
+      }
+
+      .character-name {
+        font-size: 0.75rem;
+        padding: 3px 6px;
+      }
+
+      .preview-panel {
+        padding: 12px 10px 10px 10px;
+      }
+
+      .preview-image-area {
+        width: 160px;
+        height: 200px;
+      }
+
+      .preview-character-name {
+        font-size: 1.1rem;
+      }
+
+      .nickname-label {
+        font-size: 1rem;
+      }
+
+      .nickname-input {
+        font-size: 0.9rem;
+        padding: 8px 10px;
+      }
+
+      .enter-btn {
+        padding: 10px 20px;
+        font-size: 1.1rem;
       }
     }
   </style>

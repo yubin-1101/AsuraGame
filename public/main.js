@@ -1345,21 +1345,90 @@ const mobilePickupBtn = document.getElementById('mobilePickupBtn');
 mobileAttackBtn.addEventListener('touchstart', (e) => {
   e.preventDefault();
   if (window.currentGame && window.currentGame.player_) {
-    window.currentGame.player_.Attack_();
+    // J 키 공격 로직 실행
+    if (!window.currentGame.player_.isAttacking_ && !window.currentGame.player_.isJumping_ &&
+        !window.currentGame.player_.isRolling_ && window.currentGame.player_.attackCooldownTimer_ <= 0) {
+      let attackAnimation = 'SwordSlash'; // 기본값
+      // 무기 종류에 따라 애니메이션 선택
+      if (window.currentGame.player_.currentWeaponModel && window.currentGame.player_.currentWeaponModel.userData.weaponName) {
+        const weaponName = window.currentGame.player_.currentWeaponModel.userData.weaponName;
+
+        // 무기별 애니메이션 매칭
+        if (/Pistol|Shotgun|SniperRifle|AssaultRifle|Bow/i.test(weaponName)) {
+          attackAnimation = 'Shoot_OneHanded';
+        } else if (/Sword_big|GreatSword/i.test(weaponName)) {
+          attackAnimation = 'GreatSwordAttack';
+        } else if (/Axe_Double/i.test(weaponName)) {
+          attackAnimation = 'DoubleAxeAttack';
+        } else if (/Axe_small|Axe/i.test(weaponName)) {
+          attackAnimation = 'HandAxeAttack';
+        } else if (/Hammer/i.test(weaponName)) {
+          attackAnimation = 'HammerAttack';
+        } else if (/Dagger/i.test(weaponName)) {
+          attackAnimation = 'DaggerAttack';
+        } else if (/Sword/i.test(weaponName)) {
+          attackAnimation = 'SwordAttack';
+        }
+      }
+      window.currentGame.player_.PlayAttackAnimation(attackAnimation);
+    }
   }
 });
 
 mobileJumpBtn.addEventListener('touchstart', (e) => {
   e.preventDefault();
   if (window.currentGame && window.currentGame.player_) {
-    window.currentGame.player_.Jump_();
+    // K 키 점프 로직 실행
+    if (!window.currentGame.player_.isJumping_ && !window.currentGame.player_.isRolling_) {
+      window.currentGame.player_.isJumping_ = true;
+      window.currentGame.player_.velocityY_ = window.currentGame.player_.jumpPower_;
+      window.currentGame.player_.SetAnimation_('Jump');
+    }
   }
 });
 
 mobileRollBtn.addEventListener('touchstart', (e) => {
   e.preventDefault();
   if (window.currentGame && window.currentGame.player_) {
-    window.currentGame.player_.Roll_();
+    // L 키 구르기 로직 실행
+    if (!window.currentGame.player_.isJumping_ &&
+        !window.currentGame.player_.isRolling_ &&
+        window.currentGame.player_.animations_['Roll'] &&
+        window.currentGame.player_.rollCooldownTimer_ <= 0) {
+
+      // 공격 중 구르기 시 공격 취소 및 투사체 제거
+      if (window.currentGame.player_.isAttacking_) {
+        window.currentGame.player_.isAttacking_ = false;
+        window.currentGame.player_.ClearAttackProjectile_();
+        // 진행 중인 공격 애니메이션의 콜백 제거
+        if (window.currentGame.player_.onAnimationFinished_) {
+          window.currentGame.player_.mixer_.removeEventListener('finished', window.currentGame.player_.onAnimationFinished_);
+          window.currentGame.player_.onAnimationFinished_ = null;
+        }
+        // 현재 애니메이션 액션 정리
+        if (window.currentGame.player_.currentAction_) {
+          window.currentGame.player_.currentAction_.stop();
+        }
+      }
+
+      window.currentGame.player_.isRolling_ = true;
+      window.currentGame.player_.rollTimer_ = window.currentGame.player_.rollDuration_;
+      const moveDir = new THREE.Vector3();
+      if (window.currentGame.player_.keys_.forward) moveDir.z -= 1;
+      if (window.currentGame.player_.keys_.backward) moveDir.z += 1;
+      if (window.currentGame.player_.keys_.left) moveDir.x -= 1;
+      if (window.currentGame.player_.keys_.right) moveDir.x += 1;
+
+      if (moveDir.length() > 0) {
+        moveDir.normalize();
+      } else {
+        moveDir.set(0, 0, -1);
+        moveDir.normalize().applyAxisAngle(new THREE.Vector3(0, 1, 0), window.currentGame.player_.lastRotationAngle_ || 0);
+      }
+      window.currentGame.player_.rollDirection_.copy(moveDir);
+      window.currentGame.player_.SetAnimation_('Roll');
+      window.currentGame.player_.rollCooldownTimer_ = window.currentGame.player_.rollCooldown_;
+    }
   }
 });
 
