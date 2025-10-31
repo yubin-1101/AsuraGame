@@ -64,7 +64,22 @@ export class GameStage1 {
 
     await loadWeaponData(); // 무기 데이터 로드를 기다립니다.
     for (const weaponData of this.spawnedWeapons) {
-      const weapon = spawnWeaponOnMap(this.scene, weaponData.weaponName, weaponData.x, weaponData.y, weaponData.z, weaponData.uuid);
+      let x, y, z;
+
+      // 섬 맵일 때는 타일 위로 재배치
+      if (this.map === 'map2') {
+        const newPos = this.getRandomWeaponSpawnPosition();
+        x = newPos.x;
+        y = newPos.y;
+        z = newPos.z;
+      } else {
+        // 도시 맵은 서버 위치 사용
+        x = weaponData.x;
+        y = weaponData.y;
+        z = weaponData.z;
+      }
+
+      const weapon = spawnWeaponOnMap(this.scene, weaponData.weaponName, x, y, z, weaponData.uuid);
       this.spawnedWeaponObjects.push(weapon);
     }
     // 맵에 따른 데미지 설정
@@ -245,6 +260,41 @@ export class GameStage1 {
     // 최대 시도 횟수를 초과하면 기본 위치 반환 (최후의 수단)
 
     return new THREE.Vector3(0, 0.5, 0);
+  }
+
+  getRandomWeaponSpawnPosition() {
+    // 무기 스폰용 위치 생성
+    let x, y, z;
+
+    if (this.map === 'map2') {
+      // 섬 맵: 실제 타일 위에서 스폰
+      const tileSpawnAreas = this.npc_.GetTileSpawnAreas();
+      if (!tileSpawnAreas || tileSpawnAreas.length === 0) {
+        // 타일 정보가 없으면 기본 위치 반환
+        console.warn('[getRandomWeaponSpawnPosition] 타일 정보 없음, 기본 위치 사용');
+        return new THREE.Vector3(0, 5, 0);
+      }
+
+      // 랜덤한 타일 선택
+      const randomTile = tileSpawnAreas[Math.floor(Math.random() * tileSpawnAreas.length)];
+
+      // 타일의 바운딩박스 범위 계산
+      const halfWidth = randomTile.boundingBoxSize.width / 2;
+      const halfDepth = randomTile.boundingBoxSize.depth / 2;
+
+      // 타일 범위 내에서 랜덤한 위치 생성
+      const margin = 0.3; // 타일 가장자리에서 떨어진 거리
+      x = randomTile.position.x + (Math.random() * 2 - 1) * (halfWidth - margin);
+      z = randomTile.position.z + (Math.random() * 2 - 1) * (halfDepth - margin);
+      y = 5; // 약간 높게 스폰하여 타일 위에 떨어지도록
+    } else {
+      // 도시 맵: 전체 맵
+      x = Math.random() * 80 - 40;
+      y = 1;
+      z = Math.random() * 80 - 40;
+    }
+
+    return new THREE.Vector3(x, y, z);
   }
 
   async CreateLocalPlayer() {
@@ -486,7 +536,7 @@ export class GameStage1 {
                 // 새로운 무기 스폰 로직 추가
                 const newWeaponName = getRandomWeaponName();
                 if (newWeaponName) {
-                  const newSpawnPosition = this.getRandomPosition();
+                  const newSpawnPosition = this.getRandomWeaponSpawnPosition();
                   const newWeaponUuid = THREE.MathUtils.generateUUID(); // 새로운 무기 UUID 생성
                   const newWeapon = spawnWeaponOnMap(this.scene, newWeaponName, newSpawnPosition.x, newSpawnPosition.y, newSpawnPosition.z, newWeaponUuid);
                   this.spawnedWeaponObjects.push(newWeapon);

@@ -280,9 +280,21 @@ io.on('connection', (socket) => {
             const weaponName = getRandomWeaponName();
             if (weaponName) {
               const uuid = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-              const x = Math.random() * 80 - 40;
-              const y = 1;
-              const z = Math.random() * 80 - 40;
+
+              // 맵에 따라 다른 스폰 범위
+              let x, y, z;
+              if (room.map === 'map2') {
+                // 섬 맵: 타일 범위 내에서 스폰 (X: 0~58, Z: -40~19)
+                x = Math.random() * 54 + 2; // 2 ~ 56 범위 (타일 가장자리 피함)
+                y = 5; // 약간 높게 스폰하여 타일 위에 떨어지도록
+                z = Math.random() * 54 - 36; // -36 ~ 18 범위 (타일 가장자리 피함)
+              } else {
+                // 도시 맵: 전체 맵
+                x = Math.random() * 80 - 40;
+                y = 1;
+                z = Math.random() * 80 - 40;
+              }
+
               spawnedWeapons.push({ uuid, weaponName, x, y, z });
             }
           }

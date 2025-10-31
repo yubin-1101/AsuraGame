@@ -68,9 +68,15 @@ export class Weapon {
 
 // 무작위 무기 이름을 반환하는 함수
 export function getRandomWeaponName() {
-    const weaponNames = Object.keys(WEAPON_DATA).filter(name => name !== 'Potion1_Filled.fbx');
+    const weaponNames = Object.keys(WEAPON_DATA).filter(name => {
+        // Potion과 원거리 무기(type: "ranged") 제외
+        if (name === 'Potion1_Filled.fbx') return false;
+        const weaponData = WEAPON_DATA[name];
+        if (weaponData && weaponData.type === 'ranged') return false;
+        return true;
+    });
     if (weaponNames.length === 0) {
-        
+
         return null;
     }
     const randomIndex = Math.floor(Math.random() * weaponNames.length);

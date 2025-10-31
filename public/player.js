@@ -1008,9 +1008,25 @@ export const player = (() => {
           this.position_.y = newPosition.y; // Y 이동은 허용
         }
 
-        // 바닥 체크
-        if (this.position_.y <= 0 && !isOnTop) {
-          this.position_.y = 0;
+        // 바닥 체크 강화 (타일 위 최소 높이 보장)
+        let minGroundY = 0; // 기본 바닥
+
+        // 모든 collidable 중에서 플레이어 바로 아래에 있는 것 찾기
+        for (const collidable of collidables) {
+          const bbox = collidable.boundingBox;
+          // 플레이어의 XZ 위치가 collidable 범위 안에 있는지 확인
+          if (this.position_.x >= bbox.min.x && this.position_.x <= bbox.max.x &&
+              this.position_.z >= bbox.min.z && this.position_.z <= bbox.max.z) {
+            // 플레이어 아래에 있는 타일이면 최소 높이 업데이트
+            if (bbox.max.y > minGroundY && bbox.max.y <= this.position_.y + 1) {
+              minGroundY = bbox.max.y;
+            }
+          }
+        }
+
+        // 최소 높이보다 낮으면 보정
+        if (this.position_.y < minGroundY) {
+          this.position_.y = minGroundY;
           this.velocityY_ = 0;
           this.isJumping_ = false;
         }
@@ -1112,9 +1128,25 @@ export const player = (() => {
           this.position_.y = newPosition.y; // Y 이동은 허용
         }
 
-        // 바닥 체크
-        if (this.position_.y <= 0 && !isOnTop) {
-          this.position_.y = 0;
+        // 바닥 체크 강화 (타일 위 최소 높이 보장)
+        let minGroundY = 0; // 기본 바닥
+
+        // 모든 collidable 중에서 플레이어 바로 아래에 있는 것 찾기
+        for (const collidable of collidables) {
+          const bbox = collidable.boundingBox;
+          // 플레이어의 XZ 위치가 collidable 범위 안에 있는지 확인
+          if (this.position_.x >= bbox.min.x && this.position_.x <= bbox.max.x &&
+              this.position_.z >= bbox.min.z && this.position_.z <= bbox.max.z) {
+            // 플레이어 아래에 있는 타일이면 최소 높이 업데이트
+            if (bbox.max.y > minGroundY && bbox.max.y <= this.position_.y + 1) {
+              minGroundY = bbox.max.y;
+            }
+          }
+        }
+
+        // 최소 높이보다 낮으면 보정
+        if (this.position_.y < minGroundY) {
+          this.position_.y = minGroundY;
           this.velocityY_ = 0;
           this.isJumping_ = false;
         }

@@ -1259,11 +1259,6 @@ boundingBoxSize: { width: 2, height: 1.5, depth: 12 },
             );
             const collidable = { model, boundingBox };
             this.collidables_.push(collidable);
-
-            // 바운딩 박스 헬퍼를 항상 보이도록 추가
-            const boundingBoxHelper = new THREE.Box3Helper(boundingBox, 0x00ff00);
-            this.scene_.add(boundingBoxHelper);
-            collidable.boundingBoxHelper = boundingBoxHelper;
           });
         } else if (modelInfo.boundingBoxSize) { // 기존 단일 바운딩 박스 처리 로직 유지
           const { width, height, depth } = modelInfo.boundingBoxSize;
@@ -1276,11 +1271,6 @@ boundingBoxSize: { width: 2, height: 1.5, depth: 12 },
           );
           const collidable = { model, boundingBox };
           this.collidables_.push(collidable);
-
-          // 바운딩 박스 헬퍼를 항상 보이도록 추가
-          const boundingBoxHelper = new THREE.Box3Helper(boundingBox, 0x00ff00);
-          this.scene_.add(boundingBoxHelper);
-          collidable.boundingBoxHelper = boundingBoxHelper;
         }
       }
     }

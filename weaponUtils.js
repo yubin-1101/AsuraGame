@@ -15,9 +15,15 @@ async function loadWeaponData() {
 }
 
 function getRandomWeaponName() {
-    const weaponNames = Object.keys(WEAPON_DATA).filter(name => name !== 'Potion1_Filled.fbx');
+    const weaponNames = Object.keys(WEAPON_DATA).filter(name => {
+        // Potion과 원거리 무기(type: "ranged") 제외
+        if (name === 'Potion1_Filled.fbx') return false;
+        const weaponData = WEAPON_DATA[name];
+        if (weaponData && weaponData.type === 'ranged') return false;
+        return true;
+    });
     if (weaponNames.length === 0) {
-        console.warn("Server: No weapons available to spawn (excluding Potion1_Filled.fbx).");
+        console.warn("Server: No weapons available to spawn (excluding Potion and ranged weapons).");
         return null;
     }
     const randomIndex = Math.floor(Math.random() * weaponNames.length);
