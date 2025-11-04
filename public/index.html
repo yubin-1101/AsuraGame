@@ -1279,18 +1279,34 @@
         transition: background-color 0.3s, transform 0.2s, box-shadow 0.3s;
         box-shadow: 0 0 20px rgba(255, 69, 0, 0.7); /* Glow effect */
       ">준비</button>
-      <button id="addAIBotButton" style="
-        padding: 15px 24px;
-        font-size: 20px;
-        background-color: #2d7dd2;
-        border: none;
-        border-radius: 10px;
-        color: white;
-        cursor: pointer;
-        transition: background-color 0.3s, transform 0.2s, box-shadow 0.3s;
-        box-shadow: 0 0 16px rgba(45, 125, 210, 0.7);
-        margin-left: 10px;
-      ">AI 생성</button>
+      <div style="display: inline-flex; align-items: center; margin-left: 10px;">
+        <select id="botDifficultySelect" style="
+          padding: 15px 12px;
+          font-size: 18px;
+          background-color: #34495e;
+          border: none;
+          border-radius: 10px 0 0 10px;
+          color: white;
+          cursor: pointer;
+          transition: background-color 0.3s;
+          box-shadow: 0 0 16px rgba(45, 125, 210, 0.5);
+        ">
+          <option value="easy">쉬움</option>
+          <option value="normal" selected>보통</option>
+          <option value="hard">어려움</option>
+        </select>
+        <button id="addAIBotButton" style="
+          padding: 15px 24px;
+          font-size: 20px;
+          background-color: #2d7dd2;
+          border: none;
+          border-radius: 0 10px 10px 0;
+          color: white;
+          cursor: pointer;
+          transition: background-color 0.3s, transform 0.2s, box-shadow 0.3s;
+          box-shadow: 0 0 16px rgba(45, 125, 210, 0.7);
+        ">AI 생성</button>
+      </div>
       <button id="startGameButton" style="
         padding: 15px 40px;
         font-size: 28px;

@@ -140,8 +140,30 @@ The game world has fixed boundaries at -40 to 40 units on X and Z axes. Players 
 - Bots are spawned with random names from `BOT_NAMES` and random characters from `BOT_CHARACTERS`
 - Bot AI runs in `room.gameState.botInterval` (100ms tick) after game starts
 - Bots use `runtime` object for position/rotation tracking separate from synced player data
-- Bot targeting refreshes every 1.5 seconds (15 ticks), picking nearest alive target
-- When no target, bots wander to random points that refresh every 3-6 seconds
+
+**AI State Machine** (server.js:340-602):
+Bots use a state-based AI system with the following states:
+- `idle`: Default wandering behavior
+- `seeking_weapon`: Moving towards a nearby weapon (within 20 units)
+- `chasing`: Actively pursuing a target player
+- `fleeing`: Retreating when HP is low
+- `attacking`: In attack range and executing attacks
+
+**Difficulty Settings** (server.js:29-35):
+Three difficulty levels affect bot behavior:
+- **Easy**: 20 tick reaction time, 10 damage, 60% accuracy, flees at 20 HP
+- **Normal**: 15 tick reaction time, 15 damage, 80% accuracy, flees at 30 HP
+- **Hard**: 10 tick reaction time, 20 damage, 95% accuracy, flees at 40 HP
+
+**Bot Behaviors**:
+- **Weapon Seeking** (server.js:453-510): Bots without weapons search for the nearest weapon within 20 units and navigate to pick it up
+- **Flee Behavior** (server.js:418-451): When HP drops below threshold OR when 3+ enemies are within 8 units, bots flee away from nearest enemy at 4.5 units/sec
+- **Strategic Targeting** (server.js:514-552): Bots prioritize low-HP enemies (2x weight) over distance (1x weight), ignore enemies beyond 15 units
+- **Attack Logic** (server.js:591-669): Bots use weapon-specific animations (Punch/SwordAttack/GreatSwordAttack/etc.) and attack when within 2 units, with accuracy determined by difficulty
+- **Movement Speeds**: Fleeing (4.5), Seeking weapon (3.5), Chasing (3.0), Wandering (2.0) units per second
+- **Collision Avoidance** (server.js:103-148): Bots avoid colliding with other players/bots using 0.65 unit radius AABB checks
+- **Knockback/Stun System** (server.js:375-413, 951-977): Bots receive knockback and stun effects from attacks, disabling AI during stun duration
+- **Group Combat Recognition** (server.js:419-426): Bots flee when outnumbered (3+ enemies nearby) regardless of HP
 
 ### Working with Weapons
 - Weapon data must exist in `public/resources/data/weapon_data.json` before server spawn
@@ -224,9 +246,12 @@ The game world has fixed boundaries at -40 to 40 units on X and Z axes. Players 
 ### Common Gotchas and Debugging Tips
 
 **Bot System Issues**:
-- Bots require `runtime` object initialization with position/rotation tracking
+- Bots require `runtime` object initialization with position/rotation tracking and state machine fields
 - Bot intervals start 3 seconds after game start (matching player countdown)
 - Always check `!bot.isBot` guards when handling player-only logic
+- Bot difficulty is set during creation via `makeRandomBot(roomId, difficulty)` and stored in `bot.aiSettings`
+- Bot state changes should update `bot.runtime.state` to trigger appropriate behavior
+- When bots pick up weapons, remember to spawn new weapons to maintain the 10-weapon count
 
 **Weapon Spawning Issues**:
 - Weapons must be defined in `weapon_data.json` before server can spawn them

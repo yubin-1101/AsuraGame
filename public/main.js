@@ -967,10 +967,12 @@ startGameButton.addEventListener('click', () => {
 
 // Add AI bot to current room
 addAIBotButton.addEventListener('click', () => {
-  
+  const botDifficultySelect = document.getElementById('botDifficultySelect');
+  const difficulty = botDifficultySelect ? botDifficultySelect.value : 'normal';
+
   addAIBotButton.disabled = true;
   addAIBotButton.textContent = 'AI 추가 중...';
-  socket.emit('addBot');
+  socket.emit('addBot', difficulty);
   // 3초 타임아웃으로 복구
   setTimeout(() => {
     addAIBotButton.disabled = false;
