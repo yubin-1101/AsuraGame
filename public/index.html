@@ -566,7 +566,7 @@
       transform: translate(-50%, -50%);
       display: flex;
       flex-direction: row;
-      align-items: flex-start;
+      align-items: center; /* 수직 중앙 정렬 */
       z-index: 2;
       gap: 60px;
       justify-content: center;
@@ -631,8 +631,26 @@
       align-items: center;
       border: 4px solid;
       border-image: linear-gradient(45deg, #ff2e2e, #00d4ff) 1;
+      max-height: 600px; /* 최대 높이 설정 */
+      overflow-y: auto; /* 세로 스크롤 활성화 */
     }
-    /* 캐릭터 그리드: 4열로 배치, 스크롤 가능 */
+    /* 스크롤바 스타일링 */
+    .character-grid-wrapper::-webkit-scrollbar {
+      width: 12px;
+    }
+    .character-grid-wrapper::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 10px;
+    }
+    .character-grid-wrapper::-webkit-scrollbar-thumb {
+      background: linear-gradient(45deg, #ff2e2e, #00d4ff);
+      border-radius: 10px;
+      border: 2px solid rgba(0, 0, 0, 0.3);
+    }
+    .character-grid-wrapper::-webkit-scrollbar-thumb:hover {
+      background: linear-gradient(45deg, #ff4f4f, #00e4ff);
+    }
+    /* 캐릭터 그리드: 5열로 배치, 스크롤 가능 */
     .character-grid {
       display: grid;
       grid-template-columns: repeat(5, 100px);
