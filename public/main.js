@@ -1558,8 +1558,8 @@ function createWinnerCharacter(characterName) {
   // Three.js 씬 설정
   winnerScene = new THREE.Scene();
   winnerCamera = new THREE.PerspectiveCamera(50, 1, 0.1, 1000);
-  winnerCamera.position.set(0, 1.5, 3);
-  winnerCamera.lookAt(0, 1, 0);
+  winnerCamera.position.set(0, 1.2, 5);
+  winnerCamera.lookAt(0, 0.8, 0);
 
   winnerRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   winnerRenderer.setSize(400, 400);
@@ -1584,8 +1584,8 @@ function createWinnerCharacter(characterName) {
 
   loader.load(characterPath, (gltf) => {
     const model = gltf.scene;
-    model.position.set(0, 0, 0);
-    model.scale.set(1, 1, 1);
+    model.position.set(0, -0.5, 0);
+    model.scale.set(0.8, 0.8, 0.8);
     winnerScene.add(model);
 
     // 애니메이션 믹서 설정
