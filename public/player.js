@@ -764,21 +764,27 @@ export const player = (() => {
 
     EquipWeapon(weaponName) {
       if (!this.rightHandBone) {
-        
+
         return;
       }
 
       if (this.currentWeaponModel && this.currentWeaponModel.userData.weaponName === weaponName) {
-        
+
         return;
       }
 
       const weaponData = WEAPON_DATA[weaponName];
       if (!weaponData) {
-        
+
         return;
       }
       this.equippedWeaponData_ = weaponData;
+
+      // Fist는 무기가 없으므로 모델 로드를 건너뜀
+      if (weaponName === 'Fist' || weaponName === 'Fist.fbx') {
+        this.UnequipWeapon(); // 기존 무기 제거
+        return;
+      }
 
       const loader = new FBXLoader();
       loader.setPath('./resources/weapon/FBX/');

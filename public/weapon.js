@@ -37,6 +37,11 @@ export class Weapon {
     }
 
     LoadModel_(weaponName, position) {
+        // Fist는 무기가 없으므로 모델 로드를 건너뜀
+        if (weaponName === 'Fist' || weaponName === 'Fist.fbx') {
+            return;
+        }
+
         const loader = new FBXLoader();
         loader.setPath('./resources/weapon/FBX/'); // 무기 FBX 파일 경로
 
