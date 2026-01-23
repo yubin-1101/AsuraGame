@@ -381,6 +381,26 @@
     border-color: #d97d3d;
   }
 
+  /* Fighting-game HUD styles */
+  .fight-hud { position: absolute; top: 14px; left: 0; right: 0; pointer-events: none; z-index: 300; }
+  .hud-row { display:flex; justify-content:space-between; align-items:center; width:100%; padding: 0 28px; }
+  .hud-left, .hud-right { pointer-events: auto; display:flex; align-items:center; gap:12px; }
+  .hud-bar { background: linear-gradient(90deg,#330000,#220000); border-radius:8px; padding:8px; display:flex; align-items:center; gap:8px; box-shadow: 0 6px 18px rgba(0,0,0,0.6); }
+  .hud-name { color:#ffd8a6; font-weight:800; font-size:18px; text-shadow:0 2px 8px rgba(0,0,0,0.7); }
+  .hud-health { width:260px; height:20px; background:#222; border-radius:10px; overflow:hidden; border:2px solid rgba(255,255,255,0.06); }
+  .hud-health-fill { height:100%; width:100%; background:linear-gradient(90deg,#ff3b3b,#ff8b3b); transition:width 0.25s ease; }
+  .hud-portrait { width:44px; height:44px; border-radius:50%; border:2px solid rgba(255,255,255,0.12); background:#111; }
+
+  .round-timer-large { position: absolute; top: 6px; left: 50%; transform: translateX(-50%); pointer-events: none; z-index: 310; font-family: 'Impact', Arial, sans-serif; color: #fff; font-size: 44px; letter-spacing: 2px; padding: 8px 18px; border-radius: 8px; background: linear-gradient(180deg, rgba(0,0,0,0.6), rgba(0,0,0,0.25)); box-shadow: 0 6px 24px rgba(0,0,0,0.6); text-shadow: 0 2px 8px rgba(255,80,80,0.25); }
+
+  .hud-center-stats { position: absolute; top: 64px; left: 50%; transform: translateX(-50%); pointer-events: none; z-index: 300; display:flex; gap:18px; align-items:center; }
+  .score-box { background: rgba(0,0,0,0.45); color:#fff; padding:6px 12px; border-radius:8px; font-weight:700; font-size:16px; box-shadow: 0 4px 12px rgba(0,0,0,0.6); }
+  .combo-tag { background: linear-gradient(90deg,#ffcc00,#ff6600); color:#000; font-weight:900; padding:6px 10px; border-radius:6px; box-shadow:0 6px 14px rgba(255,120,0,0.18); }
+
+  /* Minimal adjustments for menu to feel more arcade */
+  #menu h1 { font-family: 'Impact', Arial, sans-serif; font-size: 64px; color: #ffdd57; text-shadow: 0 4px 16px rgba(0,0,0,0.7); }
+  #createRoomButton, #joinRoomMainButton { background: linear-gradient(180deg,#ff5f3b,#b81f1f); border-radius: 10px; font-weight: 800; box-shadow: 0 10px 30px rgba(200,50,50,0.25); }
+
   /* 모바일 컨트롤 기본 스타일 */
   #mobileControls {
     display: none;
@@ -1260,8 +1280,10 @@
       <div id="gameStartCountdown" style="font-size: 50px; color: white; text-shadow: 2px 2px 4px #000000;"></div>
     </div>
 
-    <!-- In-game Timer -->
-    <div id="timer" style="position: absolute; top: 20px; left: 50%; transform: translateX(-50%); font-size: 36px; color: white; text-shadow: 2px 2px 4px #000000;"></div>
+    <!-- In-game small timer removed -->
+
+    <!-- Fighting HUD removed (player bars + score/combo) -->
+    <div class="round-timer-large" id="roundTimer">3:00</div>
 
     <!-- Kill/Death Log (Kill Feed) -->
     <div id="killFeed" style="position: absolute; top: 20px; right: 20px; width: 300px; text-align: right;"></div>
@@ -1370,6 +1392,10 @@
             <img src="./resources/Map3.png" alt="Map 3" style="width: 150px; height: 100px; object-fit: cover; border-radius: 5px;">
             <p style="margin-top: 5px; text-align: center; font-weight: bold;">섬</p>
           </div>
+          <div class="map-thumbnail-change" data-map="map3" style="cursor: pointer; border: 3px solid transparent; border-radius: 10px; padding: 10px; transition: all 0.3s;">
+            <img src="./resources/Map1.png" alt="Map 3" style="width: 150px; height: 100px; object-fit: cover; border-radius: 5px;">
+            <p style="margin-top: 5px; text-align: center; font-weight: bold;">당구대</p>
+          </div>
         </div>
       </div>
       <button id="changeMapConfirmButton" style="padding: 10px 20px; font-size: 18px; background-color: #4CAF50; border: none; border-radius: 5px; color: white; cursor: pointer; margin-right: 10px;">변경</button>
@@ -1391,6 +1417,10 @@
           <div class="map-thumbnail" data-map="map2">
             <img src="./resources/Map3.png" alt="Map 3">
             <p>섬</p>
+          </div>
+          <div class="map-thumbnail" data-map="map3">
+            <img src="./resources/Map1.png" alt="Map 3">
+            <p>당구대</p>
           </div>
         </div>
       </div>
@@ -1487,6 +1517,56 @@
         </div>
       </div>
     </div>
+
+  <script>
+    // HUD: health/score/combo UI removed — keep no-ops to avoid runtime errors
+    window.HUD = {
+      setHealth: () => {},
+      setNames: () => {},
+      setTimer: (text) => {
+        const t = document.getElementById('roundTimer');
+        if (t) t.textContent = text;
+      },
+      setScore: () => {},
+      setCombo: () => {}
+    };
+    // Initialize timer display
+    HUD.setTimer('3:00');
+
+    // Round timer auto-countdown controls
+    (function(){
+      let __roundTimerInterval = null;
+      let __timeLeft = 0;
+
+      function _updateDisplay() {
+        const el = document.getElementById('roundTimer');
+        if (!el) return;
+        const m = Math.floor(__timeLeft / 60);
+        const s = __timeLeft % 60;
+        el.textContent = `${m}:${s.toString().padStart(2, '0')}`;
+      }
+
+      window.HUD.startRoundCountdown = function(seconds = 180) {
+        // Set initial display to the requested seconds. Actual countdown is driven by server 'updateTimer' events
+        __timeLeft = Math.max(0, Math.floor(Number(seconds) || 180));
+        _updateDisplay();
+      };
+
+      window.HUD.stopRoundCountdown = function() {
+        if (__roundTimerInterval) {
+          clearInterval(__roundTimerInterval);
+          __roundTimerInterval = null;
+        }
+      };
+
+      // Auto-start when DOM ready
+      if (document.readyState === 'complete' || document.readyState === 'interactive') {
+        window.HUD.startRoundCountdown(180);
+      } else {
+        document.addEventListener('DOMContentLoaded', () => window.HUD.startRoundCountdown(180));
+      }
+    })();
+  </script>
   </div>
 
   <!-- 모달: 선택 확인 팝업 (현재 사용 안 함) -->

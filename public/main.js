@@ -6,6 +6,7 @@ import { math } from './math.js';
 import { hp } from './hp.js'; // hp.js 임포트
 import { WEAPON_DATA, loadWeaponData, spawnWeaponOnMap, getRandomWeaponName } from './weapon.js';
 import { AttackSystem } from './attackSystem.js';
+import { PoolTableStage } from './PoolTableStage.js'; // 당구대 맵 임포트
 
 const socket = io();
 
@@ -1041,11 +1042,23 @@ socket.on('updatePlayers', (players, maxPlayers) => {
     let count = 3;
     gameStartCountdown.textContent = `잠시 후 게임이 시작됩니다... ${count}`;
 
-    // GameStage1 인스턴스를 생성하고 초기화 완료를 기다림
-    const gameStage = new GameStage1(socket, gameInfo.players, gameInfo.map, gameInfo.spawnedWeapons);
-    window.currentGame = gameStage; // 모바일 컨트롤에서 접근 가능하도록 전역 변수에 할당
-    await gameStage.initialized; // 초기화 완료 대기
-    gameStage.player_.SetGameInputEnabled(false); // 플레이어 입력 비활성화
+    // 맵에 따라 다른 GameStage 사용
+    let gameStage;
+    if (gameInfo.map === 'map3') {
+      // 당구대 맵
+      gameStage = new PoolTableStage(socket, gameInfo.players, gameInfo.map, gameInfo.spawnedWeapons);
+      window.currentGame = gameStage;
+      // PoolTableStage는 초기화가 동기적이므로 대기 불필요
+      if (gameStage.player) {
+        gameStage.player.SetGameInputEnabled(false);
+      }
+    } else {
+      // 기존 맵 (map1, map2)
+      gameStage = new GameStage1(socket, gameInfo.players, gameInfo.map, gameInfo.spawnedWeapons);
+      window.currentGame = gameStage;
+      await gameStage.initialized; // 초기화 완료 대기
+      gameStage.player_.SetGameInputEnabled(false); // 플레이어 입력 비활성화
+    }
 
     // 모바일 컨트롤 활성화
     initializeMobileControls();
@@ -1056,15 +1069,35 @@ socket.on('updatePlayers', (players, maxPlayers) => {
       if (count === 0) {
         clearInterval(countdownInterval);
         countdownOverlay.style.display = 'none'; // 카운트다운 오버레이 숨기기
-        gameStage.player_.SetGameInputEnabled(true); // 플레이어 입력 활성화
+        // 맵에 따라 플레이어 객체 접근 방식이 다름
+        if (gameInfo.map === 'map3') {
+          if (gameStage.player) {
+            gameStage.player.SetGameInputEnabled(true);
+          }
+        } else {
+          if (gameStage.player_) {
+            gameStage.player_.SetGameInputEnabled(true);
+          }
+        }
+
+        // Start client-side HUD countdown synchronized with selected room round time (fallback 180s)
+        try {
+          if (window.HUD && typeof window.HUD.startRoundCountdown === 'function') {
+            window.HUD.startRoundCountdown(gameInfo.roundTime || 180);
+          }
+        } catch (e) {
+          console.warn('HUD.startRoundCountdown not available:', e);
+        }
       }
     }, 1000);
   });
 
-socket.on('updateTimer', (time) => {
+socket.on('updateTimer', (data) => {
+    const time = (typeof data === 'object' && data.time !== undefined) ? data.time : data;
     const minutes = Math.floor(time / 60);
     const seconds = time % 60;
-    document.getElementById('timer').textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    const el = document.getElementById('roundTimer') || document.getElementById('timer');
+    if (el) el.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
 });
 
 socket.on('updateScores', (scores) => {
@@ -1110,6 +1143,10 @@ socket.on('killFeed', (data) => {
 
 socket.on('gameEnd', (finalScores) => {
     console.log('[gameEnd] Received finalScores:', finalScores);
+
+    // Stop client-side HUD countdown
+    try { if (window.HUD && typeof window.HUD.stopRoundCountdown === 'function') window.HUD.stopRoundCountdown(); } catch(e) { /* ignore */ }
+
     const gameEndScreen = document.getElementById('gameEndScreen');
     const finalScoreboard = document.getElementById('finalScoreboard');
 

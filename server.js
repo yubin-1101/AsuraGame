@@ -376,7 +376,22 @@ io.on('connection', (socket) => {
           room.gameState.spawnedWeapons = spawnedWeapons;
 
           console.log('[게임 시작 서버] startGame 이벤트 전송, 맵:', room.map);
-          io.to(socket.roomId).emit('startGame', { players: room.players, map: room.map, spawnedWeapons: spawnedWeapons });
+          io.to(socket.roomId).emit('startGame', { players: room.players, map: room.map, spawnedWeapons: spawnedWeapons, roundTime: room.roundTime });
+
+          // Start server-side authoritative timer immediately (prevents relying on client 'gameStart' emits)
+          if (!room.gameState.timerId) {
+            room.gameState.timerId = setInterval(() => {
+              if (room.gameState.timer > 0) {
+                room.gameState.timer--;
+                io.to(socket.roomId).emit('updateTimer', room.gameState.timer);
+              } else {
+                clearInterval(room.gameState.timerId);
+                room.gameState.timerId = null;
+                io.to(socket.roomId).emit('gameEnd', room.players.map(p => ({ nickname: p.nickname, kills: p.kills, deaths: p.deaths })));
+              }
+            }, 1000);
+            console.log('[startGameRequest] Server game timer started for room', socket.roomId);
+          }
 
           // Start bot simulation after 3s (client countdown)
           if (room.gameState.botIntervalStartTO) {
