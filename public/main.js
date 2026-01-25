@@ -8,7 +8,9 @@ import { WEAPON_DATA, loadWeaponData, spawnWeaponOnMap, getRandomWeaponName } fr
 import { AttackSystem } from './attackSystem.js';
 import { PoolTableStage } from './PoolTableStage.js'; // 당구대 맵 임포트
 
-const socket = io();
+const socket = (typeof window !== 'undefined' && window.SOCKET_SERVER_URL)
+  ? io(window.SOCKET_SERVER_URL)
+  : io();
 
 export class GameStage1 {
   constructor(socket, players, map, spawnedWeapons) {

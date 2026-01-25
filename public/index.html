@@ -1755,7 +1755,12 @@
   </div>
   <div id="container"></div>
 
-  <script src="/socket.io/socket.io.js"></script>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <script>
+    // Set your real server URL here before deploying the static client to Netlify.
+    // Example: window.SOCKET_SERVER_URL = "https://your-server.onrender.com";
+    window.SOCKET_SERVER_URL = "REPLACE_WITH_SERVER_URL";
+  </script>
   <script type="module" src="./main.js"></script>
 
   <!-- Three.js 및 관련 라이브러리: 3D 모델 렌더링 -->
