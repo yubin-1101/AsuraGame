@@ -1757,9 +1757,10 @@
 
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
   <script>
-    // Set your real server URL here before deploying the static client to Netlify.
-    // Example: window.SOCKET_SERVER_URL = "https://your-server.onrender.com";
-    window.SOCKET_SERVER_URL = "REPLACE_WITH_SERVER_URL";
+    // 자동으로 현재 호스트(배포된 도메인)를 사용하여 Socket.IO에 연결합니다.
+    // 배포 시 서버가 별도 도메인에 있다면 해당 URL로 변경하세요.
+    // 예: window.SOCKET_SERVER_URL = "https://your-server.onrender.com";
+    window.SOCKET_SERVER_URL = window.location.origin;
   </script>
   <script type="module" src="./main.js"></script>
 
